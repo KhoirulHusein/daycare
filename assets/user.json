@@ -1,0 +1,22 @@
+[
+  {
+    "email": "parent@example.com",
+    "password": "Password1!",
+    "role": "Parent"
+  },
+  {
+    "email": "parent1@example.com",
+    "password": "Password1!",
+    "role": "Parent"
+  },
+  {
+    "email": "caregiver@example.com",
+    "password": "Password1!",
+    "role": "Caregiver"
+  },
+  {
+    "email": "caregiver2@example.com",
+    "password": "Password1!",
+    "role": "Caregiver"
+  }
+]
