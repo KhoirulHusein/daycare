@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\michael keyva v\Documents\PRAK_PBM\daycare\daycare\build\windows\x64\CMakeFiles\ba8490cca7ba23bd20378fb2b0761608\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{6AEF7B04-D868-3F9A-8268-5180B2C736A5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
