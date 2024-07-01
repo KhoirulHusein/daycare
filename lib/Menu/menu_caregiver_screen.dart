@@ -1,32 +1,18 @@
-// ignore_for_file: library_private_types_in_public_api
+// ignore_for_file: use_build_context_synchronously, library_private_types_in_public_api, prefer_const_constructors
 
+import 'package:daycare_app/Menu/components/sqlite/display_activity.dart';
+import 'package:daycare_app/Menu/components/sqlite/input_activity.dart';
+import 'package:daycare_app/Screens/Login/login_screen.dart';
+import 'package:daycare_app/database/helper.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daycare_app/models/form_data.dart';
-import 'package:daycare_app/Menu/components/InputData/input_activity_screen.dart';
-import 'package:daycare_app/Menu/components/InputData/input_child_screen.dart';
-import 'package:daycare_app/Menu/components/ScreensData/display_child_activity_screen.dart';
-import 'package:daycare_app/Menu/components/ScreensData/display_child_data_screen.dart';
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Caregiver App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: CaregiverScreen(),
-    );
-  }
-}
+import 'package:daycare_app/weather/weather_service.dart';
+import 'package:daycare_app/constants.dart';
+import 'package:weather/weather.dart';
 
 class CaregiverScreen extends StatefulWidget {
-  const CaregiverScreen({Key? key}) : super(key: key);
+  const CaregiverScreen({super.key});
 
   @override
   _CaregiverScreenState createState() => _CaregiverScreenState();
@@ -36,42 +22,56 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
   bool _isChildDataSubmitted = false;
   FormData? _childData;
   FormData? _activityData;
+  Weather? _currentWeather;
 
-  _saveChildDataLocally(FormData childData) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('childName', childData.name);
-    await prefs.setString('childDate', childData.date.toString());
-    await prefs.setString('childArrival', childData.arrival);
-    await prefs.setDouble('childBodyTemperature', childData.bodyTemperature);
-    await prefs.setString('childConditions', childData.conditions);
-  }
+  final WeatherService _weatherService = WeatherService();
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   _loadChildData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    try {
+      final records = await _dbHelper.getRecords();
+      if (records.isNotEmpty) {
+        setState(() {
+          _childData = FormData(
+            name: records[0]['name'],
+            date: DateTime.tryParse(records[0]['date_arrival']) ?? DateTime.now(),
+            arrival: records[0]['date_arrival'],
+            bodyTemperature: records[0]['body_temperature'],
+            conditions: records[0]['condition'],
+            meals: [],
+            toilets: [],
+            rests: [],
+            bottles: [],
+            shower: '',
+            vitamin: '',
+            notesForParents: '',
+            itemsNeeded: [],
+          );
+          _isChildDataSubmitted = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading child data: $e');
+    }
+  }
+
+  _loadWeatherData() async {
+    Weather? weather = await _weatherService.getCurrentWeather("Jakarta");
     setState(() {
-      _childData = FormData(
-        name: prefs.getString('childName') ?? '',
-        date: DateTime.tryParse(prefs.getString('childDate') ?? '') ?? DateTime.now(),
-        arrival: prefs.getString('childArrival') ?? '',
-        bodyTemperature: prefs.getDouble('childBodyTemperature') ?? 0.0,
-        conditions: prefs.getString('childConditions') ?? '',
-        meals: [],
-        toilets: [],
-        rests: [],
-        bottles: [],
-        shower: '',
-        vitamin: '',
-        notesForParents: '',
-        itemsNeeded: [],
-      );
-      _isChildDataSubmitted = _childData!.name.isNotEmpty;
+      _currentWeather = weather;
     });
   }
 
   @override
   void initState() {
     super.initState();
+    _initDatabase();
     _loadChildData();
+    _loadWeatherData();
+  }
+
+  void _initDatabase() async {
+    await _dbHelper.database;
   }
 
   @override
@@ -81,154 +81,84 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
         title: const Text('Caregiver Menu'),
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
+        child: Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
-                children: [
-                  _buildCard(
-                    title: 'Input Data (Anak)',
-                    icon: Icons.person_add,
-                    onPressed: () async {
-                      final formData = await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const InputChildDataScreen()),
-                      );
-                      if (formData != null) {
-                        setState(() {
-                          _isChildDataSubmitted = true;
-                          _childData = formData;
-                        });
-                        await _saveChildDataLocally(formData);
-                      }
-                    },
+              const SizedBox(height: 10),
+              _buildWeatherCard(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [    
+                  Expanded(
+                    child: _buildCard(
+                      title: 'Input Kegiatan Anak',
+                      icon: Icons.event,
+                      color: const Color.fromARGB(255, 222, 141, 236),
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const InputActivity()),
+                        );
+                        if (result != null && result is FormData) {
+                          setState(() {
+                            _activityData = result;
+                          });
+                        }
+                      },
+                    ),
                   ),
-                  _buildCard(
-                    title: 'Input Kegiatan (Pengasuh)',
-                    icon: Icons.event,
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const InputActivityScreen()),
-                      );
-                      if (result != null && result is FormData) {
-                        setState(() {
-                          _activityData = result;
-                        });
-                      }
-                    },
-                  ),
-                  _buildCard(
-                    title: 'Kegiatan Anak (Ortu)',
-                    icon: Icons.child_friendly,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChildActivityScreen(
-                            childData: _childData,
-                            activityData: _activityData,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildCard(
-                    title: 'Lihat Data Anak',
-                    icon: Icons.visibility,
-                    onPressed: () {
-                      if (_isChildDataSubmitted) {
+                  Expanded(
+                    child: _buildCard(
+                      title: 'Kegiatan Anak',
+                      icon: Icons.child_friendly,
+                      color: const Color.fromARGB(255, 222, 141, 236),
+                      onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DisplayChildDataScreen(
-                              childName: _childData!.name,
-                              childDate: _childData!.date,
-                              childArrival: _childData!.arrival,
-                              childBodyTemperature: _childData!.bodyTemperature,
-                              childConditions: _childData!.conditions,
-                            ),
+                            builder: (context) => DisplayActivity(),
                           ),
                         );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Silakan input data anak terlebih dahulu'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
+                      },
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 20),
-              _buildButton(
-                title: 'Location',
-                icon: Icons.location_on,
-                onPressed: () {
-                  // Implementasi aksi ketika tombol Location ditekan
-                },
-              ),
-              SizedBox(height: 20),
-              _buildButton(
-                title: 'Support',
-                icon: Icons.headset_mic,
-                onPressed: () {
-                  // Implementasi aksi ketika tombol Support ditekan
-                },
-              ),
-              SizedBox(height: 20),
-              _buildButton(
-                title: 'Share',
-                icon: Icons.share,
-                onPressed: () {
-                  // Implementasi aksi ketika tombol Share ditekan
-                },
-              ),
-              SizedBox(height: 20),
-              _buildButton(
-                title: 'Help',
-                icon: Icons.help,
-                onPressed: () {
-                  // Implementasi aksi ketika tombol Help ditekan
-                },
-              ),
+              
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildButton({
-    required String title,
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return InkWell(
-      onTap: onPressed,
-      child: Container(
-        height: 50.0,
-        decoration: BoxDecoration(
-          color: Colors.blue,
-          borderRadius: BorderRadius.circular(10.0),
-        ),
+      bottomNavigationBar: BottomAppBar(
+        color: kPrimaryColor,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 10),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 14.0, color: Colors.white),
+            IconButton(
+              icon: const Icon(Icons.home, color: Colors.white),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CaregiverScreen()),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.headset_mic, color: Colors.white),
+              onPressed: () {
+                // Aksi ketika tombol Support ditekan
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.share, color: Colors.white),
+              onPressed: () {
+                // Aksi ketika tombol Share ditekan
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: _logout,
             ),
           ],
         ),
@@ -236,31 +166,77 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     );
   }
 
-  Widget _buildCard({required String title, required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
     return Card(
-      elevation: 5,
+      color: color,
+      elevation: 4.0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(10.0),
       ),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
+        child: Container(
+          width: double.infinity,
+          height: 200.0,
           padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 40),
-              const SizedBox(height: 10),
+              Icon(icon, size: 50, color: Colors.white),
+              const SizedBox(height: 20),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16.0, color: Colors.white),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildWeatherCard() {
+    return Card(
+      color: const Color.fromARGB(255, 135, 206, 235),
+      elevation: 4.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud, size: 50, color: Colors.white),
+            const SizedBox(height: 10),
+            Text(
+              _currentWeather != null
+                  ? "${_currentWeather!.areaName}, ${_currentWeather!.country}\n${_currentWeather!.temperature?.celsius?.toStringAsFixed(1)}°C\n${_currentWeather!.weatherDescription}, Wind ${_currentWeather!.windSpeed?.toString()} m/s"
+                  : "Loading...",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16.0, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userEmail');
+    await prefs.remove('userRole');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 }

@@ -1,4 +1,5 @@
 class FormData {
+  int id;
   String name;
   DateTime date;
   String arrival;
@@ -14,6 +15,7 @@ class FormData {
   List<String> itemsNeeded;
 
   FormData({
+    this.id = 0,
     required this.name,
     required this.date,
     required this.arrival,
@@ -60,6 +62,7 @@ class Toilet {
   ToiletCondition condition;
   String notes;
 
+  // ignore: prefer_typing_uninitialized_variables
   var comments;
 
   Toilet({
